@@ -1,212 +1,241 @@
-﻿// =========================
-// COLOR CRUSHER - FULL GAME
-// =========================
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Color Crusher</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      font-family: Arial, sans-serif; 
+      display: flex; 
+      justify-content: center; 
+      align-items: flex-start; 
+      background: #111;
+      padding: 20px;
+    }
+    button { cursor:pointer; }
+    /* Side panel styling */
+    #sidePanel {
+      width: 300px;
+      background: #000;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      border-radius: 10px;
+      margin-left: 20px;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer"></div>
+  <div id="sidePanel"></div>
 
-(function() {
-    // ------------------------------
-    // CREATE LAYOUT
-    // ------------------------------
-    document.body.innerHTML = '';
-    document.body.style.margin = '0';
-    document.body.style.fontFamily = 'Arial';
-    document.body.style.display = 'flex';
-    document.body.style.background = '#111';
-    document.body.style.color = 'white';
-    
-    // Game container
-    const gameContainer = document.createElement('div');
-    gameContainer.style.flex = '1';
-    gameContainer.style.background = '#222';
-    gameContainer.style.position = 'relative';
-    document.body.appendChild(gameContainer);
-    
-    // Canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = window.innerHeight;
-    canvas.style.display = 'block';
-    gameContainer.appendChild(canvas);
-    const ctx = canvas.getContext('2d');
-    
-    // Side panel
-    const sidePanel = document.createElement('div');
-    sidePanel.style.width = '300px';
-    sidePanel.style.background = '#000';
-    sidePanel.style.padding = '10px';
-    sidePanel.style.boxSizing = 'border-box';
-    sidePanel.style.overflowY = 'auto';
-    sidePanel.style.height = window.innerHeight + 'px';
-    document.body.appendChild(sidePanel);
-    
-    // ------------------------------
-    // GAME VARIABLES
-    // ------------------------------
-    let score = 0, gems = 0, wave = 1, running = true;
-    let cannonLevels = { red:1, blue:1, green:1, yellow:1, pink:1 };
-    const cost = lv => lv*25;
-    
-    // Mouse
-    const mouse = {x:0,y:0,down:false};
-    canvas.addEventListener('mousemove', e=>{
-        const rect=canvas.getBoundingClientRect();
-        mouse.x=e.clientX-rect.left;
-        mouse.y=e.clientY-rect.top;
-    });
-    canvas.addEventListener('mousedown', ()=>mouse.down=true);
-    canvas.addEventListener('mouseup', ()=>mouse.down=false);
-    
-    // ------------------------------
-    // CREATE UI ELEMENTS
-    // ------------------------------
-    function addText(html){ const el=document.createElement('div'); el.innerHTML=html; sidePanel.appendChild(el); return el;}
-    addText("<h2>Color Crusher</h2>");
-    
-    // Stats
-    const statsBox = addText(`
-        Score: <span id='score'>0</span><br>
-        Gems: <span id='gems'>0</span><br>
-        Wave: <span id='wave'>1</span>
-    `);
-    
-    // Cannon Boxes
-    addText("<h3>Cannons</h3>");
-    function makeCannonBox(color,id){
-        const box = document.createElement('div');
-        box.style.border='1px solid #555';
-        box.style.padding='10px';
-        box.style.marginBottom='10px';
-        box.style.borderRadius='6px';
-        box.style.background='#111';
-        box.innerHTML=`<b>${color} Cannon</b><br>Level: <span id='${id}'>1</span><br>`;
-        const btn=document.createElement('button');
-        btn.textContent="Upgrade";
-        btn.style.width='100%';
-        btn.style.marginTop='5px';
-        btn.onclick=()=>upgradeCannon(id.replace('Lvl',''));
-        box.appendChild(btn);
-        sidePanel.appendChild(box);
-    }
-    
-    makeCannonBox("Red","redLvl");
-    makeCannonBox("Blue","blueLvl");
-    makeCannonBox("Green","greenLvl");
-    makeCannonBox("Yellow","yellowLvl");
-    makeCannonBox("Pink","pinkLvl");
-    
-    // Cheat input
-    addText("<h3>Cheat Code</h3>");
-    const cheatInput = document.createElement('input');
-    cheatInput.placeholder="enter code…";
-    cheatInput.style.width="100%";
-    cheatInput.style.padding="5px";
-    sidePanel.appendChild(cheatInput);
-    
-    const cheatBtn = document.createElement('button');
-    cheatBtn.textContent="Submit";
-    cheatBtn.style.width="100%";
-    cheatBtn.style.marginTop="5px";
-    sidePanel.appendChild(cheatBtn);
-    
-    // Admin panel
-    const adminPanel=document.createElement('div');
-    adminPanel.style.display='none';
-    adminPanel.style.marginTop='15px';
-    adminPanel.style.padding='10px';
-    adminPanel.style.border='1px solid #555';
-    adminPanel.style.borderRadius='8px';
-    adminPanel.style.background='#111';
-    sidePanel.appendChild(adminPanel);
-    adminPanel.innerHTML="<b>Admin Panel</b><br><br>";
-    function makeAdminButton(name,fn){
-        const btn=document.createElement('button');
-        btn.textContent=name;
-        btn.style.width='100%';
-        btn.style.marginTop='5px';
-        btn.onclick=fn;
-        adminPanel.appendChild(btn);
-    }
-    makeAdminButton("Add 2000 Gems",()=>{gems+=2000; refreshUI();});
-    makeAdminButton("Set Wave 10",()=>{wave=10; refreshUI();});
-    makeAdminButton("Max Cannons",()=>{cannonLevels={red:99,blue:99,green:99,yellow:99,pink:99}; refreshUI();});
-    makeAdminButton("Game Over",()=>{running=false;});
-    makeAdminButton("Restart",()=>{
-        score=0; gems=0; wave=1; running=true;
-        cannonLevels={red:1,blue:1,green:1,yellow:1,pink:1};
-        refreshUI();
-        startWave();
-    });
-    
-    // Status box
-    const statusBox=document.createElement('div');
-    statusBox.style.marginTop='10px';
-    statusBox.style.padding='10px';
-    statusBox.style.border='1px solid #555';
-    statusBox.style.background='#111';
-    sidePanel.appendChild(statusBox);
-    function setStatus(x){statusBox.textContent="Status: "+x;}
-    
-    // ------------------------------
-    // UI & Upgrade logic
-    // ------------------------------
-    function refreshUI(){
-        document.getElementById('score').textContent=score;
-        document.getElementById('gems').textContent=gems;
-        document.getElementById('wave').textContent=wave;
-        document.getElementById('redLvl').textContent=cannonLevels.red;
-        document.getElementById('blueLvl').textContent=cannonLevels.blue;
-        document.getElementById('greenLvl').textContent=cannonLevels.green;
-        document.getElementById('yellowLvl').textContent=cannonLevels.yellow;
-        document.getElementById('pinkLvl').textContent=cannonLevels.pink;
-    }
-    
-    function upgradeCannon(color){
-        const colorKey=color.toLowerCase();
-        const price=cost(cannonLevels[colorKey]);
-        if(gems<price){setStatus("Not enough gems ("+price+")"); return;}
-        gems-=price;
-        cannonLevels[colorKey]++;
-        setStatus(color+" cannon upgraded!");
-        refreshUI();
-    }
-    
-    cheatBtn.onclick=()=>{
-        const c=cheatInput.value.trim().toLowerCase();
-        if(c==="admin"){adminPanel.style.display='block'; setStatus("Admin panel unlocked.");}
-        else{setStatus("Invalid code.");}
-    };
-    
-    // ------------------------------
-    // AUTO WAVE
-    // ------------------------------
-    function startWave(){
-        if(!running) return;
-        setStatus("Wave "+wave+" started!");
-        gems+=10+wave;
-        score+=5*wave;
-        refreshUI();
-        setTimeout(()=>{
-            wave++;
-            if(running) startWave();
-        },3000);
-    }
-    
-    startWave();
-    
-    // ------------------------------
-    // SIMPLE GAME LOOP (canvas example)
-    // ------------------------------
-    function gameLoop(){
-        ctx.fillStyle="#444";
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        // simple visual cannon levels
-        const colors=["red","blue","green","yellow","pink"];
-        colors.forEach((col,i)=>{
-            ctx.fillStyle=col;
-            ctx.fillRect(50+i*100,canvas.height-100,50,-cannonLevels[col]*10);
+  <script>
+    // =========================
+    // COLOR CRUSHER - FULL GAME
+    // =========================
+
+    (function() {
+        // ------------------------------
+        // CREATE LAYOUT
+        // ------------------------------
+        const gameContainer = document.getElementById('gameContainer');
+        const sidePanel = document.getElementById('sidePanel');
+
+        // Canvas (phone-size)
+        const canvasWidth = 360;   // phone width
+        const canvasHeight = 640;  // phone height
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        canvas.style.display = 'block';
+        canvas.style.border = '2px solid #555';
+        canvas.style.borderRadius = '20px';
+        canvas.style.background = '#222';
+        canvas.style.margin = '0 auto';
+        gameContainer.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+
+        // Optional scaling for bigger screens
+        const scale = Math.min(1.5, (window.innerWidth - 360) / 360);
+        canvas.style.transform = `scale(${scale})`;
+        canvas.style.transformOrigin = 'top left';
+
+        // ------------------------------
+        // GAME VARIABLES
+        // ------------------------------
+        let score = 0, gems = 0, wave = 1, running = true;
+        let cannonLevels = { red:1, blue:1, green:1, yellow:1, pink:1 };
+        const cost = lv => lv*25;
+
+        // Mouse
+        const mouse = {x:0,y:0,down:false};
+        canvas.addEventListener('mousemove', e=>{
+            const rect=canvas.getBoundingClientRect();
+            mouse.x=(e.clientX-rect.left)/scale;
+            mouse.y=(e.clientY-rect.top)/scale;
         });
-        requestAnimationFrame(gameLoop);
-    }
-    gameLoop();
-    
-    setStatus("Game started! Type 'admin' to unlock admin panel.");
-})();
+        canvas.addEventListener('mousedown', ()=>mouse.down=true);
+        canvas.addEventListener('mouseup', ()=>mouse.down=false);
+
+        // ------------------------------
+        // CREATE UI ELEMENTS
+        // ------------------------------
+        function addText(html){ const el=document.createElement('div'); el.innerHTML=html; sidePanel.appendChild(el); return el;}
+        addText("<h2>Color Crusher</h2>");
+
+        // Stats
+        const statsBox = addText(`
+            Score: <span id='score'>0</span><br>
+            Gems: <span id='gems'>0</span><br>
+            Wave: <span id='wave'>1</span>
+        `);
+
+        // Cannon Boxes
+        addText("<h3>Cannons</h3>");
+        function makeCannonBox(color,id){
+            const box = document.createElement('div');
+            box.style.border='1px solid #555';
+            box.style.padding='10px';
+            box.style.marginBottom='10px';
+            box.style.borderRadius='6px';
+            box.style.background='#111';
+            box.innerHTML=`<b>${color} Cannon</b><br>Level: <span id='${id}'>1</span><br>`;
+            const btn=document.createElement('button');
+            btn.textContent="Upgrade";
+            btn.style.width='100%';
+            btn.style.marginTop='5px';
+            btn.onclick=()=>upgradeCannon(id.replace('Lvl',''));
+            box.appendChild(btn);
+            sidePanel.appendChild(box);
+        }
+
+        makeCannonBox("Red","redLvl");
+        makeCannonBox("Blue","blueLvl");
+        makeCannonBox("Green","greenLvl");
+        makeCannonBox("Yellow","yellowLvl");
+        makeCannonBox("Pink","pinkLvl");
+
+        // Cheat input
+        addText("<h3>Cheat Code</h3>");
+        const cheatInput = document.createElement('input');
+        cheatInput.placeholder="enter code…";
+        cheatInput.style.width="100%";
+        cheatInput.style.padding="5px";
+        sidePanel.appendChild(cheatInput);
+
+        const cheatBtn = document.createElement('button');
+        cheatBtn.textContent="Submit";
+        cheatBtn.style.width="100%";
+        cheatBtn.style.marginTop="5px";
+        sidePanel.appendChild(cheatBtn);
+
+        // Admin panel
+        const adminPanel=document.createElement('div');
+        adminPanel.style.display='none';
+        adminPanel.style.marginTop='15px';
+        adminPanel.style.padding='10px';
+        adminPanel.style.border='1px solid #555';
+        adminPanel.style.borderRadius='8px';
+        adminPanel.style.background='#111';
+        sidePanel.appendChild(adminPanel);
+        adminPanel.innerHTML="<b>Admin Panel</b><br><br>";
+        function makeAdminButton(name,fn){
+            const btn=document.createElement('button');
+            btn.textContent=name;
+            btn.style.width='100%';
+            btn.style.marginTop='5px';
+            btn.onclick=fn;
+            adminPanel.appendChild(btn);
+        }
+        makeAdminButton("Add 2000 Gems",()=>{gems+=2000; refreshUI();});
+        makeAdminButton("Set Wave 10",()=>{wave=10; refreshUI();});
+        makeAdminButton("Max Cannons",()=>{cannonLevels={red:99,blue:99,green:99,yellow:99,pink:99}; refreshUI();});
+        makeAdminButton("Game Over",()=>{running=false;});
+        makeAdminButton("Restart",()=>{
+            score=0; gems=0; wave=1; running=true;
+            cannonLevels={red:1,blue:1,green:1,yellow:1,pink:1};
+            refreshUI();
+            startWave();
+        });
+
+        // Status box
+        const statusBox=document.createElement('div');
+        statusBox.style.marginTop='10px';
+        statusBox.style.padding='10px';
+        statusBox.style.border='1px solid #555';
+        statusBox.style.background='#111';
+        sidePanel.appendChild(statusBox);
+        function setStatus(x){statusBox.textContent="Status: "+x;}
+
+        // ------------------------------
+        // UI & Upgrade logic
+        // ------------------------------
+        function refreshUI(){
+            document.getElementById('score').textContent=score;
+            document.getElementById('gems').textContent=gems;
+            document.getElementById('wave').textContent=wave;
+            document.getElementById('redLvl').textContent=cannonLevels.red;
+            document.getElementById('blueLvl').textContent=cannonLevels.blue;
+            document.getElementById('greenLvl').textContent=cannonLevels.green;
+            document.getElementById('yellowLvl').textContent=cannonLevels.yellow;
+            document.getElementById('pinkLvl').textContent=cannonLevels.pink;
+        }
+
+        function upgradeCannon(color){
+            const colorKey=color.toLowerCase();
+            const price=cost(cannonLevels[colorKey]);
+            if(gems<price){setStatus("Not enough gems ("+price+")"); return;}
+            gems-=price;
+            cannonLevels[colorKey]++;
+            setStatus(color+" cannon upgraded!");
+            refreshUI();
+        }
+
+        cheatBtn.onclick=()=>{
+            const c=cheatInput.value.trim().toLowerCase();
+            if(c==="admin"){adminPanel.style.display='block'; setStatus("Admin panel unlocked.");}
+            else{setStatus("Invalid code.");}
+        };
+
+        // ------------------------------
+        // AUTO WAVE
+        // ------------------------------
+        function startWave(){
+            if(!running) return;
+            setStatus("Wave "+wave+" started!");
+            gems+=10+wave;
+            score+=5*wave;
+            refreshUI();
+            setTimeout(()=>{
+                wave++;
+                if(running) startWave();
+            },3000);
+        }
+
+        startWave();
+
+        // ------------------------------
+        // SIMPLE GAME LOOP (canvas example)
+        // ------------------------------
+        function gameLoop(){
+            ctx.fillStyle="#444";
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            // simple visual cannon levels
+            const colors=["red","blue","green","yellow","pink"];
+            colors.forEach((col,i)=>{
+                ctx.fillStyle=col;
+                ctx.fillRect(50+i*60,canvas.height-100,40,-cannonLevels[col]*10);
+            });
+            requestAnimationFrame(gameLoop);
+        }
+        gameLoop();
+
+        setStatus("Game started! Type 'admin' to unlock admin panel.");
+    })();
+  </script>
+</body>
+</html>
